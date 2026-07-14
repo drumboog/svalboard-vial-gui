@@ -163,6 +163,7 @@ K = Keycode
 KEYCODES_SPECIAL = [
     K("KC_NO", ""),
     K("KC_TRNS", "▽", alias=["KC_TRANSPARENT"]),
+    K("KC_REPEAT", "Repeat"),
 ]
 
 KEYCODES_BASIC_NUMPAD = [

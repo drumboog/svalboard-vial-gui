@@ -237,6 +237,7 @@ class keycodes_v5:
         "KC_LANG1": 0x90,
         "KC_LANG2": 0x91,
         "KC_GESC": 0x5C16,
+        "KC_REPEAT": 0x5C79,
         "KC_LSPO": 0x5CD7,
         "KC_RSPC": 0x5CD8,
         "KC_LCPO": 0x5CF3,
