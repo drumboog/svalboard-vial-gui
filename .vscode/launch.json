@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Vial GUI",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/main/python/main.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}

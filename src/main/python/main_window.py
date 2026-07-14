@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 from PyQt5.QtCore import Qt, QSettings, QStandardPaths, QTimer, QRect, QT_VERSION_STR
 from PyQt5.QtWidgets import QWidget, QComboBox, QToolButton, QHBoxLayout, QVBoxLayout, QMainWindow, QAction, qApp, \
-    QFileDialog, QDialog, QTabWidget, QActionGroup, QMessageBox, QLabel
+    QFileDialog, QDialog, QActionGroup, QMessageBox, QLabel
 
 import os
 import sys
@@ -48,6 +48,8 @@ class MainWindow(QMainWindow):
         else:
             self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
 
+        self.showMaximized()
+
         _pos = self.settings.value("pos", None)
         # NOTE: QDesktopWidget is obsolete, but QApplication.screenAt only usable in Qt 5.10+
         if _pos and qApp.desktop().geometry().contains(QRect(_pos, self.size())):
@@ -81,18 +83,13 @@ class MainWindow(QMainWindow):
         self.matrix_tester = MatrixTest(self.layout_editor)
         self.rgb_configurator = RGBConfigurator()
 
-        self.editors = [(self.keymap_editor, "Keymap"), (self.layout_editor, "Layout"), (self.macro_recorder, "Macros"),
-                        (self.rgb_configurator, "Lighting"), (self.tap_dance, "Tap Dance"), (self.combos, "Combos"),
-                        (self.key_override, "Key Overrides"), (self.qmk_settings, "QMK Settings"),
-                        (self.matrix_tester, "Matrix tester"), (self.firmware_flasher, "Firmware updater")]
+        self.editors = [(self.keymap_editor, "Keymap")]
 
         Unlocker.global_layout_editor = self.layout_editor
         Unlocker.global_main_window = self
 
         self.current_tab = None
-        self.tabs = QTabWidget()
-        self.tabs.currentChanged.connect(self.on_tab_changed)
-        self.refresh_tabs()
+        self.keymap_editor_container = None
 
         no_devices = 'No devices detected. Connect a Vial-compatible device and press "Refresh"<br>' \
                      'or select "File" → "Download VIA definitions" in order to enable support for VIA keyboards.'
@@ -106,7 +103,6 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout()
         layout.addLayout(layout_combobox)
-        layout.addWidget(self.tabs, 1)
         layout.addWidget(self.lbl_no_devices)
         layout.setAlignment(self.lbl_no_devices, Qt.AlignHCenter)
         self.tray_keycodes = TabbedKeycodes()
@@ -116,6 +112,7 @@ class MainWindow(QMainWindow):
         w = QWidget()
         w.setLayout(layout)
         self.setCentralWidget(w)
+        self.refresh_editor_view()
 
         self.init_menu()
 
@@ -292,10 +289,10 @@ class MainWindow(QMainWindow):
 
         if devices:
             self.lbl_no_devices.hide()
-            self.tabs.show()
+            self.refresh_editor_view()
         else:
             self.lbl_no_devices.show()
-            self.tabs.hide()
+            self.clear_editor_view()
 
         if hard_refresh:
             self.on_device_selected()
@@ -314,7 +311,7 @@ class MainWindow(QMainWindow):
                                               "Please change your keyboard UID to be unique before you ship!")
 
         self.rebuild()
-        self.refresh_tabs()
+        self.refresh_editor_view()
 
     def rebuild(self):
         # don't show "Security" menu for bootloader mode, as the bootloader is inherently insecure
@@ -335,14 +332,18 @@ class MainWindow(QMainWindow):
                   self.rgb_configurator]:
             e.rebuild(self.autorefresh.current_device)
 
-    def refresh_tabs(self):
-        self.tabs.clear()
-        for container, lbl in self.editors:
-            if not container.valid():
-                continue
+    def clear_editor_view(self):
+        if self.keymap_editor_container is not None:
+            self.keymap_editor_container.deleteLater()
+            self.keymap_editor_container = None
 
-            c = EditorContainer(container)
-            self.tabs.addTab(c, tr("MainWindow", lbl))
+    def refresh_editor_view(self):
+        self.clear_editor_view()
+        if not self.keymap_editor.valid():
+            return
+
+        self.keymap_editor_container = EditorContainer(self.keymap_editor)
+        self.centralWidget().layout().addWidget(self.keymap_editor_container, 1)
 
     def load_via_stack_json(self):
         from urllib.request import urlopen
@@ -378,7 +379,6 @@ class MainWindow(QMainWindow):
         self.ui_lock_count += 1
         if self.ui_lock_count == 1:
             self.autorefresh._lock()
-            self.tabs.setEnabled(False)
             self.combobox_devices.setEnabled(False)
             self.btn_refresh_devices.setEnabled(False)
 
@@ -386,7 +386,6 @@ class MainWindow(QMainWindow):
         self.ui_lock_count -= 1
         if self.ui_lock_count == 0:
             self.autorefresh._unlock()
-            self.tabs.setEnabled(True)
             self.combobox_devices.setEnabled(True)
             self.btn_refresh_devices.setEnabled(True)
 
@@ -416,20 +415,6 @@ class MainWindow(QMainWindow):
         msg = QMessageBox()
         msg.setText(tr("MainWindow", "In order to fully apply the theme you should restart the application."))
         msg.exec_()
-
-    def on_tab_changed(self, index):
-        TabbedKeycodes.close_tray()
-        old_tab = self.current_tab
-        new_tab = None
-        if index >= 0:
-            new_tab = self.tabs.widget(index)
-
-        if old_tab is not None:
-            old_tab.editor.deactivate()
-        if new_tab is not None:
-            new_tab.editor.activate()
-
-        self.current_tab = new_tab
 
     def about_vial(self):
         title = "About Vial"

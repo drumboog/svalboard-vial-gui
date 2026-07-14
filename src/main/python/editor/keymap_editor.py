@@ -2,14 +2,13 @@
 import json
 
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QMessageBox, QWidget
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 
 from any_keycode_dialog import AnyKeycodeDialog
 from editor.basic_editor import BasicEditor
 from widgets.keyboard_widget import KeyboardWidget, EncoderWidget
 from keycodes.keycodes import Keycode
 from widgets.square_button import SquareButton
-from tabbed_keycodes import TabbedKeycodes, keycode_filter_masked
 from util import tr, KeycodeDisplay
 from vial_device import VialKeyboard
 
@@ -44,6 +43,7 @@ class KeymapEditor(BasicEditor):
         self.container = KeyboardWidget(layout_editor)
         self.container.clicked.connect(self.on_key_clicked)
         self.container.deselected.connect(self.on_key_deselected)
+        self.load_scale()
 
         layout = QVBoxLayout()
         layout.addLayout(layout_labels_container)
@@ -61,12 +61,7 @@ class KeymapEditor(BasicEditor):
 
         self.container.anykey.connect(self.on_any_keycode)
 
-        self.tabbed_keycodes = TabbedKeycodes()
-        self.tabbed_keycodes.keycode_changed.connect(self.on_keycode_changed)
-        self.tabbed_keycodes.anykey.connect(self.on_any_keycode)
-
         self.addWidget(w)
-        self.addWidget(self.tabbed_keycodes)
 
         self.device = None
         KeycodeDisplay.notify_keymap_override(self)
@@ -107,7 +102,17 @@ class KeymapEditor(BasicEditor):
             self.container.set_scale(self.container.get_scale() - 0.1)
         else:
             self.container.set_scale(self.container.get_scale() + 0.1)
+        self.save_scale()
         self.refresh_layer_display()
+
+    def save_scale(self):
+        settings = QSettings("Vial", "Vial")
+        settings.setValue("keymap_scale", self.container.get_scale())
+
+    def load_scale(self):
+        settings = QSettings("Vial", "Vial")
+        scale = settings.value("keymap_scale", 1.0, type=float)
+        self.container.set_scale(scale)
 
     def rebuild(self, device):
         super().rebuild(device)
@@ -122,8 +127,6 @@ class KeymapEditor(BasicEditor):
             self.current_layer = 0
             self.on_layout_changed()
 
-            self.tabbed_keycodes.recreate_keycode_buttons()
-            TabbedKeycodes.tray.recreate_keycode_buttons()
             self.refresh_layer_display()
         self.container.setEnabled(self.valid())
 
@@ -236,13 +239,9 @@ class KeymapEditor(BasicEditor):
     def on_key_clicked(self):
         """ Called when a key on the keyboard widget is clicked """
         self.refresh_layer_display()
-        if self.container.active_mask:
-            self.tabbed_keycodes.set_keycode_filter(keycode_filter_masked)
-        else:
-            self.tabbed_keycodes.set_keycode_filter(None)
 
     def on_key_deselected(self):
-        self.tabbed_keycodes.set_keycode_filter(None)
+        self.container.update()
 
     def on_layout_changed(self):
         if self.keyboard is None:

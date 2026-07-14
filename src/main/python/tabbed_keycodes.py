@@ -156,6 +156,7 @@ class FilteredTabbedKeycodes(QTabWidget):
     def __init__(self, parent=None, keycode_filter=keycode_filter_any):
         super().__init__(parent)
 
+        self.hide()
         self.keycode_filter = keycode_filter
 
         self.tabs = [
